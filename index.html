@@ -3,78 +3,69 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>0830 8：55想像的地圖</title>
+    <title>0857想像的地圖</title>
 
-    <!-- 引入 Leaflet.js 的 CSS 檔案 -->
+    <!-- 引入 Leaflet.js 的 CSS 和 JavaScript 檔案 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossorigin="" />
-
-    <!-- 引入 Leaflet.js 的 JavaScript 檔案 -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
         crossorigin=""></script>
 
     <style>
-        /* 設定基本樣式，讓地圖填滿整個頁面 */
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
-        #map {
-            width: 100%;
-            height: 100%;
-        }
+        html, body, #map { height: 100%; margin: 0; padding: 0; }
     </style>
 </head>
 <body>
 
-<!-- 地圖容器 -->
 <div id="map"></div>
 
 <script>
-    // --- 1. 初始化地圖 ---
+    // --- 1. 定義可用的地圖圖層 ---
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    });
+
+    const esriSatelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+    });
+    
+    // 將圖層放入一個物件中，以供控制器使用
+    const baseMaps = {
+        "普通地圖": osmLayer,
+        "衛星影像": esriSatelliteLayer
+    };
+
+    // --- 2. 初始化地圖 ---
     const map = L.map('map', {
+        layers: [osmLayer], // 設定預設載入的圖層
         maxZoom: 19
     }).setView([24.956, 121.298], 13); // 預設視圖：桃園市八德區
 
-    // --- 2. 加入 OpenStreetMap 圖層 ---
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
+    // --- 3. 加入圖層控制器 ---
+    // 將圖層控制器加入到地圖的右上角
+    L.control.layers(baseMaps).addTo(map);
 
-    // --- 3. 定位成功時的處理 ---
+    // --- 4. 定位功能 ---
     function onLocationFound(e) {
-        // **【關鍵步驟 1】**
-        // 使用 setView() 一次性將地圖中心設定到使用者位置，並縮放到 19 級。
-        // 這是最直接且能確保畫面置中的方法。
-        map.setView(e.latlng, 19);
-
-        // 在地圖上放置一個標記
-        const marker = L.marker(e.latlng).addTo(map);
-        
-        // **【關鍵步驟 2】**
-        // 綁定資訊窗，並加入 { autoPan: false } 這個選項。
-        // 這會告訴 Leaflet 在打開資訊窗時「不要」自動移動地圖。
-        marker.bindPopup("您在這裡！", {
-            autoPan: false
-        }).openPopup();
-
+        map.setView(e.latlng, 19); // 將地圖中心設定到使用者位置並縮放到19級
+        L.marker(e.latlng).addTo(map)
+            .bindPopup("您在這裡！", { autoPan: false }) // autoPan: false 確保地圖不因Popup而移動
+            .openPopup();
         console.log("定位成功，已將您的位置置於畫面正中央。");
     }
 
-    // --- 4. 定位失敗時的處理 ---
     function onLocationError(e) {
         alert("無法取得您的位置。\n將顯示預設地圖。\n錯誤訊息: " + e.message);
     }
 
-    // 監聽定位成功與失敗事件
     map.on('locationfound', onLocationFound);
     map.on('locationerror', onLocationError);
 
-    // --- 5. 執行定位 ---
+    // 執行定位
     map.locate({
         enableHighAccuracy: true
     });
