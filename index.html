@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>0857想像的地圖</title>
+    <title>具備混合圖層功能的地圖</title>
 
     <!-- 引入 Leaflet.js 的 CSS 和 JavaScript 檔案 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -23,43 +23,55 @@
 
 <script>
     // --- 1. 定義可用的地圖圖層 ---
+
+    // a. 普通地圖 (OpenStreetMap)
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     });
 
+    // b. 衛星影像 (Esri World Imagery) - 無文字
     const esriSatelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 19,
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        attribution: 'Tiles &copy; Esri &mdash; i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
     });
     
-    // 將圖層放入一個物件中，以供控制器使用
+    // c. 純文字標籤圖層 (CartoDB) - 用於疊加在衛星圖上
+    const cartoLabelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>',
+        pane: 'shadowPane' // 確保標籤在最上層
+    });
+
+    // d. **【新增】** 混合圖層 (將衛星圖與文字圖層組合成一個圖層組)
+    const hybridLayer = L.layerGroup([esriSatelliteLayer, cartoLabelsLayer]);
+    
+    // 將所有可選的「基礎圖層」放入物件中，以供控制器使用
     const baseMaps = {
         "普通地圖": osmLayer,
-        "衛星影像": esriSatelliteLayer
+        "衛星影像": esriSatelliteLayer,
+        "混合地圖 (衛星+文字)": hybridLayer
     };
 
     // --- 2. 初始化地圖 ---
     const map = L.map('map', {
-        layers: [osmLayer], // 設定預設載入的圖層
+        layers: [osmLayer], // 預設載入普通地圖
         maxZoom: 19
     }).setView([24.956, 121.298], 13); // 預設視圖：桃園市八德區
 
     // --- 3. 加入圖層控制器 ---
-    // 將圖層控制器加入到地圖的右上角
     L.control.layers(baseMaps).addTo(map);
 
-    // --- 4. 定位功能 ---
+    // --- 4. 定位功能 (維持不變) ---
     function onLocationFound(e) {
-        map.setView(e.latlng, 19); // 將地圖中心設定到使用者位置並縮放到19級
+        map.setView(e.latlng, 19);
         L.marker(e.latlng).addTo(map)
-            .bindPopup("您在這裡！", { autoPan: false }) // autoPan: false 確保地圖不因Popup而移動
+            .bindPopup("您在這裡！", { autoPan: false })
             .openPopup();
-        console.log("定位成功，已將您的位置置於畫面正中央。");
     }
 
     function onLocationError(e) {
-        alert("無法取得您的位置。\n將顯示預設地圖。\n錯誤訊息: " + e.message);
+        alert("無法取得您的位置。\n將顯示預設地圖。\n錯誤訊息: ".concat(e.message));
     }
 
     map.on('locationfound', onLocationFound);
