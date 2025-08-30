@@ -3,18 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>具備混合圖層功能的地圖</title>
+    <title>全功能互動地圖 (定位、搜尋、多圖層)</title>
 
-    <!-- 引入 Leaflet.js 的 CSS 和 JavaScript 檔案 -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossorigin="" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        crossorigin=""></script>
+    <!-- 引入 Leaflet.js 相關函式庫 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- 引入 Leaflet Geocoder (地址搜尋) 插件 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
+    <!-- 引入 Leaflet EasyButton (定位按鈕) 插件 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-easybutton@2/src/easy-button.css">
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-easybutton@2/src/easy-button.js"></script>
+
+    <!-- 引入 Font Awesome (為按鈕提供圖示) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" xintegrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style>
         html, body, #map { height: 100%; margin: 0; padding: 0; }
+        /* 修正 Geocoder 搜尋結果的 z-index，確保它顯示在最上層 */
+        .leaflet-control-geocoder-alternatives {
+            z-index: 10000;
+        }
     </style>
 </head>
 <body>
@@ -22,31 +33,21 @@
 <div id="map"></div>
 
 <script>
-    // --- 1. 定義可用的地圖圖層 ---
-
-    // a. 普通地圖 (OpenStreetMap)
+    // --- 1. 定義地圖圖層 ---
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     });
-
-    // b. 衛星影像 (Esri World Imagery) - 無文字
     const esriSatelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
         maxZoom: 19,
-        attribution: 'Tiles &copy; Esri &mdash; i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        attribution: 'Tiles &copy; Esri'
     });
-    
-    // c. 純文字標籤圖層 (CartoDB) - 用於疊加在衛星圖上
     const cartoLabelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>',
-        pane: 'shadowPane' // 確保標籤在最上層
+        pane: 'shadowPane'
     });
-
-    // d. **【新增】** 混合圖層 (將衛星圖與文字圖層組合成一個圖層組)
     const hybridLayer = L.layerGroup([esriSatelliteLayer, cartoLabelsLayer]);
-    
-    // 將所有可選的「基礎圖層」放入物件中，以供控制器使用
     const baseMaps = {
         "普通地圖": osmLayer,
         "衛星影像": esriSatelliteLayer,
@@ -55,32 +56,56 @@
 
     // --- 2. 初始化地圖 ---
     const map = L.map('map', {
-        layers: [osmLayer], // 預設載入普通地圖
+        layers: [osmLayer],
         maxZoom: 19
-    }).setView([24.956, 121.298], 13); // 預設視圖：桃園市八德區
+    }).setView([24.956, 121.298], 13);
 
     // --- 3. 加入圖層控制器 ---
     L.control.layers(baseMaps).addTo(map);
 
-    // --- 4. 定位功能 (維持不變) ---
+    // --- 4. 加入地址搜尋控制器 ---
+    L.Control.geocoder({
+        defaultMarkGeocode: true, // 自動在搜尋結果上放置標記
+        placeholder: '搜尋地址或地點...',
+        errorMessage: '找不到結果'
+    }).on('markgeocode', function(e) {
+        // 當使用者從搜尋結果中選擇一個地點時，將地圖置中
+        const bbox = e.geocode.bbox;
+        const poly = L.polygon([
+            bbox.getSouthEast(),
+            bbox.getNorthEast(),
+            bbox.getNorthWest(),
+            bbox.getSouthWest()
+        ]);
+        map.fitBounds(poly.getBounds());
+    }).addTo(map);
+
+    // --- 5. 加入定位按鈕 ---
+    L.easyButton({
+        states: [{
+            stateName: 'get-location',
+            icon: 'fa-location-arrow', // 使用 Font Awesome 的圖示
+            title: '定位到我的位置',
+            onClick: function(btn, map) {
+                map.locate({
+                    enableHighAccuracy: true
+                });
+            }
+        }]
+    }).addTo(map);
+
+    // --- 6. 定位成功與失敗的處理 ---
     function onLocationFound(e) {
         map.setView(e.latlng, 19);
         L.marker(e.latlng).addTo(map)
             .bindPopup("您在這裡！", { autoPan: false })
             .openPopup();
     }
-
     function onLocationError(e) {
-        alert("無法取得您的位置。\n將顯示預設地圖。\n錯誤訊息: ".concat(e.message));
+        alert("無法取得您的位置。\n請檢查瀏覽器權限設定。\n錯誤訊息: " + e.message);
     }
-
     map.on('locationfound', onLocationFound);
     map.on('locationerror', onLocationError);
-
-    // 執行定位
-    map.locate({
-        enableHighAccuracy: true
-    });
 
 </script>
 
