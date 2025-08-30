@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自動定位與圖層切換地圖</title>
+
+    <!-- 引入 Leaflet.js 的 CSS 檔案 -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="" />
+
+    <!-- 引入 Leaflet.js 的 JavaScript 檔案 -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+
+    <style>
+        /* 設定基本樣式，讓地圖填滿整個頁面 */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 地圖容器 -->
+<div id="map"></div>
+
+<script>
+    // --- 1. 初始化地圖 ---
+    // 先將地圖設定在一個預設的中心點（台灣），如果定位失敗，就會顯示這裡。
+    const map = L.map('map').setView([23.9756, 120.9738], 8);
+
+    // --- 2. 定義基礎圖層 (Base Layers) ---
+    // a. OpenStreetMap (OSM) - 普通街道地圖
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    });
+
+    // b. ESRI World Imagery - 衛星影像圖
+    const esriSatelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+    });
+
+    // --- 3. 將預設圖層加入地圖 ---
+    osmLayer.addTo(map);
+
+    // --- 4. 建立圖層控制器 ---
+    const baseMaps = {
+        "普通地圖": osmLayer,
+        "衛星影像": esriSatelliteLayer
+    };
+    
+    L.control.layers(baseMaps).addTo(map);
+
+    // --- 5. 自動定位功能 ---
+    
+    // 監聽 'locationfound' 事件 (成功找到位置時觸發)
+    map.on('locationfound', function(e) {
+        const radius = e.accuracy / 2;
+
+        // 在使用者位置加上標記
+        L.marker(e.latlng).addTo(map)
+            .bindPopup(`您在這裡`).openPopup();
+
+        // 畫一個圈來表示位置的精確度範圍
+        L.circle(e.latlng, radius).addTo(map);
+
+        console.log("成功找到使用者位置:", e.latlng);
+    });
+
+    // 監聽 'locationerror' 事件 (定位失敗時觸發)
+    map.on('locationerror', function(e) {
+        alert("無法取得您的位置。將顯示預設地圖畫面。\n錯誤訊息: " + e.message);
+        console.error("定位失敗:", e);
+    });
+
+    // --- 6. 觸發定位 ---
+    // 請求瀏覽器提供高精度的位置，並將地圖視野移動到該位置，最大縮放等級設為 14
+    map.locate({ setView: true, maxZoom: 14, enableHighAccuracy: true });
+
+</script>
+
+</body>
+</html>
+
