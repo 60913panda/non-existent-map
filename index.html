@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自動定位與圖層切換地圖</title>
+    <title>使用者裝置定位地圖</title>
 
     <!-- 引入 Leaflet.js 的 CSS 檔案 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -35,57 +35,50 @@
 
 <script>
     // --- 1. 初始化地圖 ---
-    // 先將地圖設定在一個預設的中心點（台灣），如果定位失敗，就會顯示這裡。
-    const map = L.map('map').setView([23.9756, 120.9738], 8);
+    // 設定地圖的最大縮放級別為 19
+    const map = L.map('map', {
+        maxZoom: 19
+    })
+    // 設定預設視圖。注意：這個畫面僅在「定位成功前」或「定位失敗後」才會顯示。
+    .setView([24.956, 121.298], 13); 
 
-    // --- 2. 定義基礎圖層 (Base Layers) ---
-    // a. OpenStreetMap (OSM) - 普通街道地圖
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
+    // --- 2. 加入 OpenStreetMap 圖層 ---
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19, 
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    });
+    }).addTo(map);
 
-    // b. ESRI World Imagery - 衛星影像圖
-    const esriSatelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
-    });
+    // --- 3. 定位成功時的處理 ---
+    // 這個函式會在成功抓到「使用者裝置位置」後執行
+    function onLocationFound(e) {
+        // 將地圖中心點移動到使用者的實際位置
+        map.panTo(e.latlng);
 
-    // --- 3. 將預設圖層加入地圖 ---
-    osmLayer.addTo(map);
+        // 強制將地圖縮放級別設定為 19
+        map.setZoom(19);
 
-    // --- 4. 建立圖層控制器 ---
-    const baseMaps = {
-        "普通地圖": osmLayer,
-        "衛星影像": esriSatelliteLayer
-    };
-    
-    L.control.layers(baseMaps).addTo(map);
-
-    // --- 5. 自動定位功能 ---
-    
-    // 監聽 'locationfound' 事件 (成功找到位置時觸發)
-    map.on('locationfound', function(e) {
-        const radius = e.accuracy / 2;
-
-        // 在使用者位置加上標記
+        // 在使用者的實際位置上放置一個標記
         L.marker(e.latlng).addTo(map)
-            .bindPopup(`您在這裡`).openPopup();
+            .bindPopup("您在這裡！").openPopup();
 
-        // 畫一個圈來表示位置的精確度範圍
-        L.circle(e.latlng, radius).addTo(map);
+        console.log("已成功定位到您的裝置位置，並強制縮放至等級 19。");
+    }
 
-        console.log("成功找到使用者位置:", e.latlng);
+    // --- 4. 定位失敗時的處理 ---
+    function onLocationError(e) {
+        alert("無法取得您的位置，將顯示預設地圖（桃園市八德區）。\n錯誤訊息: " + e.message);
+    }
+
+    // 監聽定位成功與失敗事件
+    map.on('locationfound', onLocationFound);
+    map.on('locationerror', onLocationError);
+
+    // --- 5. 執行定位 ---
+    // 這行程式碼會啟動瀏覽器，開始尋找您裝置的 GPS 或網路位置
+    console.log("正在請求您的位置權限...");
+    map.locate({ 
+        enableHighAccuracy: true 
     });
-
-    // 監聽 'locationerror' 事件 (定位失敗時觸發)
-    map.on('locationerror', function(e) {
-        alert("無法取得您的位置。將顯示預設地圖畫面。\n錯誤訊息: " + e.message);
-        console.error("定位失敗:", e);
-    });
-
-    // --- 6. 觸發定位 ---
-    // 請求瀏覽器提供高精度的位置，並將地圖視野移動到該位置，最大縮放等級設為 14
-    map.locate({ setView: true, maxZoom: 14, enableHighAccuracy: true });
 
 </script>
 
