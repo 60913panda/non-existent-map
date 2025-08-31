@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>全功能互動地圖 (定位、搜尋、多圖層)</title>
+    <title>自動與手動定位地圖</title>
 
     <!-- 引入 Leaflet.js 相關函式庫 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -22,10 +22,7 @@
 
     <style>
         html, body, #map { height: 100%; margin: 0; padding: 0; }
-        /* 修正 Geocoder 搜尋結果的 z-index，確保它顯示在最上層 */
-        .leaflet-control-geocoder-alternatives {
-            z-index: 10000;
-        }
+        .leaflet-control-geocoder-alternatives { z-index: 10000; }
     </style>
 </head>
 <body>
@@ -34,19 +31,9 @@
 
 <script>
     // --- 1. 定義地圖圖層 ---
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    });
-    const esriSatelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-        maxZoom: 19,
-        attribution: 'Tiles &copy; Esri'
-    });
-    const cartoLabelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>',
-        pane: 'shadowPane'
-    });
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' });
+    const esriSatelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
+    const cartoLabelsLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a>', pane: 'shadowPane' });
     const hybridLayer = L.layerGroup([esriSatelliteLayer, cartoLabelsLayer]);
     const baseMaps = {
         "普通地圖": osmLayer,
@@ -55,57 +42,48 @@
     };
 
     // --- 2. 初始化地圖 ---
-    const map = L.map('map', {
-        layers: [osmLayer],
-        maxZoom: 19
-    }).setView([24.956, 121.298], 13);
+    const map = L.map('map', { layers: [osmLayer], maxZoom: 19 }).setView([24.956, 121.298], 13);
 
-    // --- 3. 加入圖層控制器 ---
+    // --- 3. 加入控制器 ---
     L.control.layers(baseMaps).addTo(map);
-
-    // --- 4. 加入地址搜尋控制器 ---
-    L.Control.geocoder({
-        defaultMarkGeocode: true, // 自動在搜尋結果上放置標記
-        placeholder: '搜尋地址或地點...',
-        errorMessage: '找不到結果'
-    }).on('markgeocode', function(e) {
-        // 當使用者從搜尋結果中選擇一個地點時，將地圖置中
-        const bbox = e.geocode.bbox;
-        const poly = L.polygon([
-            bbox.getSouthEast(),
-            bbox.getNorthEast(),
-            bbox.getNorthWest(),
-            bbox.getSouthWest()
-        ]);
-        map.fitBounds(poly.getBounds());
-    }).addTo(map);
-
-    // --- 5. 加入定位按鈕 ---
+    L.Control.geocoder({ defaultMarkGeocode: true, placeholder: '搜尋地址或地點...', errorMessage: '找不到結果' }).on('markgeocode', e => map.fitBounds(e.geocode.bbox)).addTo(map);
     L.easyButton({
         states: [{
             stateName: 'get-location',
-            icon: 'fa-location-arrow', // 使用 Font Awesome 的圖示
+            icon: 'fa-location-arrow',
             title: '定位到我的位置',
             onClick: function(btn, map) {
-                map.locate({
-                    enableHighAccuracy: true
-                });
+                map.locate({ enableHighAccuracy: true });
             }
         }]
     }).addTo(map);
 
-    // --- 6. 定位成功與失敗的處理 ---
+    // --- 4. 定位功能 ---
+    let locationMarker = null; // 宣告一個變數來存放位置標記
+
     function onLocationFound(e) {
-        map.setView(e.latlng, 19);
-        L.marker(e.latlng).addTo(map)
+        // 如果地圖上已經有位置標記，就先移除它
+        if (locationMarker) {
+            map.removeLayer(locationMarker);
+        }
+        
+        map.setView(e.latlng, 19); // 將地圖中心設定到使用者位置並縮放
+        
+        // 建立新的位置標記並存到變數中
+        locationMarker = L.marker(e.latlng).addTo(map)
             .bindPopup("您在這裡！", { autoPan: false })
             .openPopup();
     }
+
     function onLocationError(e) {
         alert("無法取得您的位置。\n請檢查瀏覽器權限設定。\n錯誤訊息: " + e.message);
     }
+
     map.on('locationfound', onLocationFound);
     map.on('locationerror', onLocationError);
+
+    // --- 5. 【新增】網頁載入後，立即執行一次定位 ---
+    map.locate({ enableHighAccuracy: true });
 
 </script>
 
