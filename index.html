@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自動與手動定位地圖</title>
+    <title>點擊圖標即可定位的地圖</title>
 
     <!-- 引入 Leaflet.js 相關函式庫 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -62,16 +62,19 @@
     let locationMarker = null; // 宣告一個變數來存放位置標記
 
     function onLocationFound(e) {
-        // 如果地圖上已經有位置標記，就先移除它
         if (locationMarker) {
             map.removeLayer(locationMarker);
         }
         
-        map.setView(e.latlng, 19); // 將地圖中心設定到使用者位置並縮放
+        map.setView(e.latlng, 19);
         
-        // 建立新的位置標記並存到變數中
-        locationMarker = L.marker(e.latlng).addTo(map)
-            .bindPopup("您在這裡！", { autoPan: false })
+        // 建立新的位置標記
+        locationMarker = L.marker(e.latlng)
+            .addTo(map)
+            .bindPopup("您在這裡！<br>點擊此圖標可重新定位", { autoPan: false })
+            .on('click', function() { // **【新增】為圖標加上點擊事件**
+                map.locate({ enableHighAccuracy: true });
+            })
             .openPopup();
     }
 
@@ -82,7 +85,7 @@
     map.on('locationfound', onLocationFound);
     map.on('locationerror', onLocationError);
 
-    // --- 5. 【新增】網頁載入後，立即執行一次定位 ---
+    // --- 5. 網頁載入後，立即執行一次定位 ---
     map.locate({ enableHighAccuracy: true });
 
 </script>
